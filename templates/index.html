@@ -1,0 +1,298 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
+
+    <title>Let's All Just Hop On a Plane and Meet in the Middle of the World!</title>
+    <link rel="stylesheet" href="{{ url_for('static',filename='styles/main.css') }}">
+    <link rel="stylesheet" href="//code.jquery.com/ui/1.12.1/themes/base/jquery-ui.css">
+    <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/4.0.0-beta/css/bootstrap.min.css" integrity="sha384-/Y6pD6FV/Vv2HJnA6t+vslU6fwYXjCFtcEpHbNJ0lyAFsXTsjBbfaDjzALeQsN6M" crossorigin="anonymous">
+</head>
+
+<body>
+    <nav class="navbar navbar-expand-md navbar-dark fixed-top bg-dark">
+      <a class="navbar-brand" href="#">LAJHOAPAMITMOTW</a>
+      <button class="navbar-toggler" type="button" data-toggle="collapse" data-target="#navbarCollapse" aria-controls="navbarCollapse" aria-expanded="false" aria-label="Toggle navigation">
+        <span class="navbar-toggler-icon"></span>
+      </button>
+      <div class="collapse navbar-collapse" id="navbarCollapse">
+        <ul class="navbar-nav mr-auto">
+          <li class="nav-item active">
+            <a class="nav-link" href="#">Home <span class="sr-only">(current)</span></a>
+          </li>
+          <li class="nav-item">
+            <a class="nav-link" href="#">Settings</a>
+          </li>
+        </ul>
+        <form class="form-inline mt-2 mt-md-0">
+          <button class="btn btn-outline-secondary my-2 my-sm-0" type="submit">Logout</button>
+        </form>
+      </div>
+    </nav>
+
+    <div class="loading-indicator invisible">
+        <img src="{{ url_for('static',filename='img/ajax-loader.gif') }}" />
+    </div>
+    <div class="container">
+        <div class="row my-4">
+            <div class="col">
+                <h2>Welcome {{ current_user.username }}!</h2>
+            </div>
+        </div>
+        <div class="row my-2">
+            <div class="col">
+                <h3>With whom of your friends would you like to meet?</h3>
+            </div>
+        </div>
+        <div class="row my-2">
+            <div class="col">
+                <form id="friends-list">
+                </form>
+            </div>
+        </div>
+        <div class="row my-2">
+            <div class="col">
+                <h3>When will you depart?</h3>
+            </div>
+            <div class="col">
+                <h3>When will you fly home?</h3>
+            </div>
+        </div>
+        <div class="row my-2">
+            <div class="col">
+                Date: <input type="text" id="outboundDate">
+            </div>
+            <div class="col">
+                Date: <input type="text" id="inboundDate">
+            </div>
+        </div>
+        <div class="row my-2">
+            <div class="col">
+                <div id="error" class="error">
+                </div>
+            </div>
+        </div>
+        <div class="row my-4">
+            <div class="col">
+                <a class="btn btn-success btn-lg btn-block" id="go" href="#" role="button">Go!</a>
+            </div>
+        </div>
+        <div class="row my-2">
+            <div class="col">
+                <div class="results-header invisible">
+                    <h3>Suggested meeting points:</h3>
+                </div>
+                <ul id="results">
+                </ul>
+            </div>
+        </div>
+        <div class="row my-2">
+            <div class="col">
+                <div id="container" style="position: relative; width: 600px; height: 350px; margin: auto;"></div>
+            </div>
+        </div>
+    </div>
+    <footer class="footer">
+        <div class="container">
+            <span class="text-muted">Results computed using <a href="https://www.skyscanner.com/">Skyscanner</a> technology.</span>
+        </div>
+    </footer>
+
+    <script src="https://code.jquery.com/jquery-3.2.1.min.js" integrity="sha256-hwg4gsxgFZhOsEEamdOYGBf13FyQuiTwlAQgxVSNgt4=" crossorigin="anonymous"></script>
+    <script src="https://code.jquery.com/ui/1.12.1/jquery-ui.min.js" integrity="sha256-VazP97ZCwtekAsvgPBSUwPFKdrwD3unUfSGVYrahUqU=" crossorigin="anonymous"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/popper.js/1.11.0/umd/popper.min.js" integrity="sha384-b/U6ypiBEHpOf/4+1nzFpr53nxSS+GLCkfwBdFNTxtclqqenISfwAzpKaMNFNmj4" crossorigin="anonymous"></script>
+    <script src="https://maxcdn.bootstrapcdn.com/bootstrap/4.0.0-beta/js/bootstrap.min.js" integrity="sha384-h0AbiXch4ZDo7tp9hKZ4TsHbi047NrKGLO3SEJAg45jXxnGIfYzk4Si90RDIqNm1" crossorigin="anonymous">
+    </script>
+    <script src="//cdnjs.cloudflare.com/ajax/libs/d3/3.5.3/d3.min.js"></script>
+    <script src="//cdnjs.cloudflare.com/ajax/libs/topojson/1.6.9/topojson.min.js"></script>
+    <script src="{{ url_for('static',filename='js/datamaps.world.min.js') }}"></script>
+    <script>
+        var params = ['airport', 'country', 'dest_countries'];
+
+        function getCoords(airport) {
+            for (c in airports) {
+                for (i in airports[c]) {
+                    if (airports[c][i]['id'] == airport) {
+                        lon = airports[c][i]['location'].split(', ')[0];
+                        lat = airports[c][i]['location'].split(', ')[1];
+                        return {
+                            'lat': lat,
+                            'lon': lon
+                        };
+                    }
+                }
+            }
+        }
+
+        function drawArcs(sources, target) {
+            var arcs = [];
+            for (s of sources) {
+                var s_coord = getCoords(s);
+                var t_coord = getCoords(target);
+
+                arcs.push({
+                    origin: {
+                        latitude: s_coord['lat'],
+                        longitude: s_coord['lon']
+                    },
+                    destination: {
+                        latitude: t_coord['lat'],
+                        longitude: t_coord['lon']
+                    }
+                });
+            }
+            map.arc(arcs, {
+                greatArc: true,
+                strokeWidth: 2,
+            });
+        }
+
+        var date = new Date();
+        $('#outboundDate').datepicker();
+        $('#outboundDate').datepicker('setDate', date);
+
+        date.setDate(date.getDate() + 1)
+        $('#inboundDate').datepicker();
+        $('#inboundDate').datepicker('setDate', date);
+
+        $('#go')[0].addEventListener('click', function() {
+            var error = null;
+
+            var friend_ids = [];
+            var sources = [user['airport']];
+            $('input[name="friend_id"]').each(function(i, v) {
+                if (v.checked) {
+                    friend_ids.push(parseInt(v.value));
+                    sources.push(friends[parseInt(v.value)]['airport'])
+                }
+            })
+
+            if (friend_ids.length < 1) {
+                error = 'Nah, you can meet yourself right where you are.';
+            }
+
+            var outboundDate = $('#outboundDate').datepicker('getDate');
+            var inboundDate = $('#inboundDate').datepicker('getDate');
+
+            var d = new Date();
+            d.setHours(0);
+            d.setMinutes(0);
+            d.setSeconds(0);
+            d.setMilliseconds(0);
+            if (outboundDate > inboundDate || outboundDate < d) {
+                error = 'Unfortunately, time travel is currently unavailable.'
+            }
+
+            var outboundDateText = $.datepicker.formatDate('yy-mm-dd', outboundDate);
+            var inboundDateText = $.datepicker.formatDate('yy-mm-dd', inboundDate);
+
+            if (error) {
+                $('#error').text(error);
+            } else {
+                $('#error').text('');
+                $('.loading-indicator').removeClass('invisible');
+                $.ajax({
+                    url: '/getroute',
+                    type: 'POST',
+                    data: JSON.stringify({
+                        'friend_ids': friend_ids,
+                        'outboundDate': outboundDateText,
+                        'inboundDate': inboundDateText
+                    }),
+                    contentType: 'application/json',
+                    success: function(data) {
+                        $('.results-header').removeClass('invisible');
+                        $('.loading-indicator').addClass('invisible');
+
+                        var k1 = Object.keys(data['route'])[0];
+                        var aps = Object.keys(data['route'][k1]);
+                        var s = {}
+
+                        for (ap of aps) {
+                            s[ap] = 0;
+                        }
+                        for (k1 in data['route']) {
+                            var v1 = data['route'][k1];
+                            for (k2 in v1) {
+                                var v2 = v1[k2];
+                                s[k2] += v2;
+                            }
+                        }
+                        var slist = [];
+                        for (var ap in s) {
+                            slist.push([ap, s[ap]]);
+                        }
+                        slist.sort(function(a, b) {
+                            return a[1] - b[1];
+                        });
+
+                        var results = $('#results')[0];
+                        $(results).empty();
+                        for (i of slist.slice(0, 3)) {
+                            var item = document.createElement('li');
+                            item.appendChild(document.createTextNode(i[0] + ': ' + i[1].toFixed(2) + '$'));
+                            results.appendChild(item);
+                        }
+
+                        target = slist[0][0];
+                        drawArcs(sources, target);
+                    },
+                });
+            }
+        });
+
+        var friends;
+        $.get('/friends').done(function(data) {
+            friends = data['friends'];
+
+            var list = $('#friends-list')[0];
+            for (i in friends) {
+                var item = document.createElement('input');
+                item.type = 'checkbox';
+                item.name = 'friend_id';
+                item.id = 'friend_id_' + i;
+                item.value = i;
+
+                var text = document.createElement('label');
+                text.htmlFor = 'friend_id_' + i;
+                text.appendChild(document.createTextNode(friends[i]['name']));
+
+                var br = document.createElement('br');
+
+                list.appendChild(item);
+                list.appendChild(text);
+                list.appendChild(br);
+            }
+        });
+
+        var airports;
+        $.get('/airports').done(function(data) {
+            airports = data['airports'];
+        });
+
+        var user = {};
+        for (f of params) {
+            $.get('/' + f).done(function(data) {
+                for (k in data) {
+                    user[k] = data[k];
+                }
+            });
+        }
+    </script>
+    <script>
+        var map = new Datamap({
+            element: document.getElementById('container'),
+            fills: {
+                defaultFill: '#00AFD7',
+            },
+            geographyConfig: {
+                highlightOnHover: false,
+                popupOnHover: false
+            }
+        });
+    </script>
+</body>
+
+</html>
