@@ -24,6 +24,11 @@ def create_user():
 def home():
     return render_template('index.html')
 
+@app.route('/settings')
+@login_required
+def settings():
+    return render_template('settings.html')
+
 @app.route('/friends', methods=['GET'])
 @login_required
 def friends():
@@ -44,7 +49,8 @@ def airports():
 @login_required
 def airport():
     if request.method == 'POST':
-        current_user.airport = request.form['airport']
+        j = request.get_json()
+        current_user.airport = j['airport']
         db_session.commit()
         return json.dumps({'success': True}), 200, {'Content-Type': 'application/json'}
     else:
@@ -55,7 +61,8 @@ def airport():
 @login_required
 def dest_countries():
     if request.method == 'POST':
-        current_user.dest_countries = request.form['dest_countries']
+        j = request.get_json()
+        current_user.dest_countries = j['dest_countries']
         db_session.commit()
         return json.dumps({'success': True}), 200, {'Content-Type': 'application/json'}
     else:
@@ -66,7 +73,8 @@ def dest_countries():
 @login_required
 def country():
     if request.method == 'POST':
-        current_user.country = request.form['country']
+        j = request.get_json()
+        current_user.country = j['country']
         db_session.commit()
         return json.dumps({'success': True}), 200, {'Content-Type': 'application/json'}
     else:
